@@ -9,11 +9,17 @@ import (
 	"github.com/go-kratos/kratos/v2/middleware"
 )
 
-// Option is circuit breaker option.
-type Option func(*options)
+type (
+	// Option is circuit breaker option.
+	Option func(*options)
+	// NewFunc returns a new breaker
+	NewFunc func() circuitbreaker.CircuitBreaker
+)
+
+var failedErr = errors.New(503, "CIRCUITBREAKER", "request failed due to circuit breaker triggered")
 
 // WithNewBeaker set the New function of circuit breaker implentation
-func WithNewFunc(newFunc circuitbreaker.NewFunc) Option {
+func WithNewFunc(newFunc NewFunc) Option {
 	return func(o *options) {
 		o.newFunc = newFunc
 	}
@@ -27,9 +33,8 @@ func WithName(name string) Option {
 }
 
 type options struct {
-	name          string
-	newFunc       circuitbreaker.NewFunc
-	fallbackFuncs []circuitbreaker.FallbackFunc
+	name    string
+	newFunc NewFunc
 }
 
 // Client circuitbreaker middleware will return errBreakerTriggered when the circuit
@@ -43,21 +48,10 @@ func Client(opts ...Option) middleware.Middleware {
 		o(options)
 	}
 
-	// create breaker group
-	group := &circuitbreaker.Group{
-		New: options.newFunc,
-	}
-
 	return func(handler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req interface{}) (reply interface{}, err error) {
-			if gerr := group.Do(options.name, func() error {
-				reply, err = handler(ctx, req)
-				return err
-			}, options.fallbackFuncs...); gerr != nil {
-				// rejected
-				return reply, errors.New(503, "CIRCUITBREAKER", "request failed due to circuit breaker triggered")
-			}
-			return reply, err
+			// TODO
+			return reply, nil
 		}
 	}
 }
